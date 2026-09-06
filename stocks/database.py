@@ -189,6 +189,20 @@ class MarketDataStore:
             ).fetchone()
         return self._row_to_daily_price(row) if row else None
 
+    def get_latest_trading_day_on_or_before(self, ticker: str, trade_date: str | date) -> DailyPrice | None:
+        with self.connect() as connection:
+            row = connection.execute(
+                """
+                SELECT ticker, trade_date, open_price, close_price, high_price, low_price, volume
+                FROM daily_prices
+                WHERE ticker = ? AND trade_date <= ?
+                ORDER BY trade_date DESC
+                LIMIT 1
+                """,
+                (ticker, _to_date(trade_date).isoformat()),
+            ).fetchone()
+        return self._row_to_daily_price(row) if row else None
+
     def get_dividend_event(self, ticker: str, ex_date: str | date) -> DividendEvent | None:
         with self.connect() as connection:
             row = connection.execute(

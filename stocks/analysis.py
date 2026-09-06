@@ -78,7 +78,10 @@ def analyze_ex_dividend_day(
 
     benchmark_previous_day_return_percent = None
     if benchmark_ticker:
-        benchmark_previous_day = store.get_previous_trading_day(benchmark_ticker, event.ex_date)
+        benchmark_previous_day = store.get_latest_trading_day_on_or_before(
+            benchmark_ticker,
+            previous_day.trade_date,
+        )
         if benchmark_previous_day is not None:
             _require_positive_close(
                 benchmark_previous_day.close_price,
@@ -141,6 +144,7 @@ def _analyze_previous_event(store: MarketDataStore, event: DividendEvent) -> Pre
         return PreviousEventAnalysis(dividend_percent=None, close_drop_percent=None)
     try:
         _require_positive_close(previous_trading_day.close_price, event.ticker, previous_trading_day.trade_date)
+        _require_positive_close(ex_day_price.close_price, event.ticker, ex_day_price.trade_date)
     except ValueError:
         return PreviousEventAnalysis(dividend_percent=None, close_drop_percent=None)
 

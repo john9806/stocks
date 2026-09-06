@@ -132,6 +132,23 @@ class AnalyzeExDividendDayTests(unittest.TestCase):
         self.assertIsNone(result.previous_ex_dividend_percent)
         self.assertIsNone(result.previous_ex_close_drop_percent)
 
+    def test_benchmark_context_aligns_to_stock_previous_trading_day(self) -> None:
+        store = MarketDataStore(Path(self.temp_dir.name) / "benchmark-alignment.db")
+        store.initialize()
+        for price in (
+            DailyPrice("XYZ", date(2024, 5, 8), 100.0, 100.0),
+            DailyPrice("XYZ", date(2024, 5, 10), 98.0, 99.0),
+            DailyPrice("QQQ", date(2024, 5, 7), 197.0, 198.0),
+            DailyPrice("QQQ", date(2024, 5, 8), 199.0, 200.0),
+            DailyPrice("QQQ", date(2024, 5, 9), 209.0, 210.0),
+        ):
+            store.upsert_daily_price(price)
+        store.upsert_dividend_event(DividendEvent("XYZ", date(2024, 5, 10), 1.0))
+
+        result = analyze_ex_dividend_day(store, "XYZ", date(2024, 5, 10), benchmark_ticker="QQQ")
+
+        self.assertAlmostEqual(result.benchmark_previous_day_return_percent, 1.0101010101, places=6)
+
 
 if __name__ == "__main__":
     unittest.main()
