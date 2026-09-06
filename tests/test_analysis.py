@@ -89,6 +89,16 @@ class AnalyzeExDividendDayTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "No previous trading day found"):
             analyze_ex_dividend_day(first_day_store, "XYZ", date(2024, 5, 10))
 
+    def test_analysis_rejects_zero_previous_close(self) -> None:
+        invalid_price_store = MarketDataStore(Path(self.temp_dir.name) / "invalid-close.db")
+        invalid_price_store.initialize()
+        invalid_price_store.upsert_daily_price(DailyPrice("XYZ", date(2024, 5, 9), 0.5, 0.0))
+        invalid_price_store.upsert_daily_price(DailyPrice("XYZ", date(2024, 5, 10), 48.5, 49.0))
+        invalid_price_store.upsert_dividend_event(DividendEvent("XYZ", date(2024, 5, 10), 1.0))
+
+        with self.assertRaisesRegex(ValueError, "close_price cannot be zero"):
+            analyze_ex_dividend_day(invalid_price_store, "XYZ", date(2024, 5, 10))
+
 
 if __name__ == "__main__":
     unittest.main()

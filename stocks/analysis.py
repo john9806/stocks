@@ -41,6 +41,11 @@ def _percent_return(start_price: float, end_price: float) -> float:
     return ((end_price - start_price) / start_price) * 100
 
 
+def _require_positive_close(close_price: float, ticker: str, trade_date: date) -> None:
+    if close_price == 0:
+        raise ValueError(f"Invalid close price for {ticker} on {trade_date}: close_price cannot be zero")
+
+
 def analyze_ex_dividend_day(
     store: MarketDataStore,
     ticker: str,
@@ -58,10 +63,12 @@ def analyze_ex_dividend_day(
     previous_day = store.get_previous_trading_day(ticker, event.ex_date)
     if previous_day is None:
         raise ValueError(f"No previous trading day found for {ticker} before {event.ex_date}")
+    _require_positive_close(previous_day.close_price, ticker, previous_day.trade_date)
 
     prior_stock_day = store.get_previous_trading_day(ticker, previous_day.trade_date)
     previous_trading_day_return_percent = None
     if prior_stock_day is not None:
+        _require_positive_close(prior_stock_day.close_price, ticker, prior_stock_day.trade_date)
         previous_trading_day_return_percent = _percent_return(
             prior_stock_day.close_price,
             previous_day.close_price,
@@ -71,11 +78,21 @@ def analyze_ex_dividend_day(
     if benchmark_ticker:
         benchmark_previous_day = store.get_previous_trading_day(benchmark_ticker, event.ex_date)
         if benchmark_previous_day is not None:
+            _require_positive_close(
+                benchmark_previous_day.close_price,
+                benchmark_ticker,
+                benchmark_previous_day.trade_date,
+            )
             prior_benchmark_day = store.get_previous_trading_day(
                 benchmark_ticker,
                 benchmark_previous_day.trade_date,
             )
             if prior_benchmark_day is not None:
+                _require_positive_close(
+                    prior_benchmark_day.close_price,
+                    benchmark_ticker,
+                    prior_benchmark_day.trade_date,
+                )
                 benchmark_previous_day_return_percent = _percent_return(
                     prior_benchmark_day.close_price,
                     benchmark_previous_day.close_price,
@@ -120,6 +137,7 @@ def _analyze_previous_event(store: MarketDataStore, event: DividendEvent) -> Pre
     ex_day_price = store.get_daily_price(event.ticker, event.ex_date)
     if previous_trading_day is None or ex_day_price is None:
         return PreviousEventAnalysis(dividend_percent=None, close_drop_percent=None)
+    _require_positive_close(previous_trading_day.close_price, event.ticker, previous_trading_day.trade_date)
 
     dividend_percent = (event.dividend_amount / previous_trading_day.close_price) * 100
     close_drop_percent = _percent_drop(previous_trading_day.close_price, ex_day_price.close_price)

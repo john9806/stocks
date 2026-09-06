@@ -99,28 +99,11 @@ class MarketDataStore:
             )
 
     def import_daily_prices_csv(self, csv_path: str | Path, ticker: str | None = None) -> int:
-        rows_inserted = 0
         self.initialize()
         with Path(csv_path).open(newline="", encoding="utf-8") as handle, self.connect() as connection:
+            rows = []
             for row in csv.DictReader(handle):
-                connection.execute(
-                    """
-                    INSERT INTO daily_prices (
-                        ticker,
-                        trade_date,
-                        open_price,
-                        close_price,
-                        high_price,
-                        low_price,
-                        volume
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(ticker, trade_date) DO UPDATE SET
-                        open_price = excluded.open_price,
-                        close_price = excluded.close_price,
-                        high_price = excluded.high_price,
-                        low_price = excluded.low_price,
-                        volume = excluded.volume
-                    """,
+                rows.append(
                     (
                         ticker or row["ticker"],
                         _to_date(row["trade_date"]).isoformat(),
@@ -129,31 +112,52 @@ class MarketDataStore:
                         float(row["high_price"]) if row.get("high_price") else None,
                         float(row["low_price"]) if row.get("low_price") else None,
                         int(row["volume"]) if row.get("volume") else None,
-                    ),
+                    )
                 )
-                rows_inserted += 1
-        return rows_inserted
+            connection.executemany(
+                """
+                INSERT INTO daily_prices (
+                    ticker,
+                    trade_date,
+                    open_price,
+                    close_price,
+                    high_price,
+                    low_price,
+                    volume
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(ticker, trade_date) DO UPDATE SET
+                    open_price = excluded.open_price,
+                    close_price = excluded.close_price,
+                    high_price = excluded.high_price,
+                    low_price = excluded.low_price,
+                    volume = excluded.volume
+                """,
+                rows,
+            )
+        return len(rows)
 
     def import_dividend_events_csv(self, csv_path: str | Path, ticker: str | None = None) -> int:
-        rows_inserted = 0
         self.initialize()
         with Path(csv_path).open(newline="", encoding="utf-8") as handle, self.connect() as connection:
+            rows = []
             for row in csv.DictReader(handle):
-                connection.execute(
-                    """
-                    INSERT INTO dividend_events (ticker, ex_date, dividend_amount)
-                    VALUES (?, ?, ?)
-                    ON CONFLICT(ticker, ex_date) DO UPDATE SET
-                        dividend_amount = excluded.dividend_amount
-                    """,
+                rows.append(
                     (
                         ticker or row["ticker"],
                         _to_date(row["ex_date"]).isoformat(),
                         float(row["dividend_amount"]),
-                    ),
+                    )
                 )
-                rows_inserted += 1
-        return rows_inserted
+            connection.executemany(
+                """
+                INSERT INTO dividend_events (ticker, ex_date, dividend_amount)
+                VALUES (?, ?, ?)
+                ON CONFLICT(ticker, ex_date) DO UPDATE SET
+                    dividend_amount = excluded.dividend_amount
+                """,
+                rows,
+            )
+        return len(rows)
 
     def get_daily_price(self, ticker: str, trade_date: str | date) -> DailyPrice | None:
         with self.connect() as connection:
