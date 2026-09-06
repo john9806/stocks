@@ -104,6 +104,7 @@ class MarketDataStore:
 
     def import_daily_prices_csv(self, csv_path: str | Path, ticker: str | None = None) -> int:
         self.initialize()
+        rows_inserted = 0
         with Path(csv_path).open(newline="", encoding="utf-8") as handle, self.connect() as connection:
             rows = []
             for row in csv.DictReader(handle):
@@ -118,30 +119,56 @@ class MarketDataStore:
                         int(row["volume"]) if row.get("volume") else None,
                     )
                 )
-            connection.executemany(
-                """
-                INSERT INTO daily_prices (
-                    ticker,
-                    trade_date,
-                    open_price,
-                    close_price,
-                    high_price,
-                    low_price,
-                    volume
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(ticker, trade_date) DO UPDATE SET
-                    open_price = excluded.open_price,
-                    close_price = excluded.close_price,
-                    high_price = excluded.high_price,
-                    low_price = excluded.low_price,
-                    volume = excluded.volume
-                """,
-                rows,
-            )
-        return len(rows)
+                if len(rows) >= 500:
+                    connection.executemany(
+                        """
+                        INSERT INTO daily_prices (
+                            ticker,
+                            trade_date,
+                            open_price,
+                            close_price,
+                            high_price,
+                            low_price,
+                            volume
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(ticker, trade_date) DO UPDATE SET
+                            open_price = excluded.open_price,
+                            close_price = excluded.close_price,
+                            high_price = excluded.high_price,
+                            low_price = excluded.low_price,
+                            volume = excluded.volume
+                        """,
+                        rows,
+                    )
+                    rows_inserted += len(rows)
+                    rows.clear()
+            if rows:
+                connection.executemany(
+                    """
+                    INSERT INTO daily_prices (
+                        ticker,
+                        trade_date,
+                        open_price,
+                        close_price,
+                        high_price,
+                        low_price,
+                        volume
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(ticker, trade_date) DO UPDATE SET
+                        open_price = excluded.open_price,
+                        close_price = excluded.close_price,
+                        high_price = excluded.high_price,
+                        low_price = excluded.low_price,
+                        volume = excluded.volume
+                    """,
+                    rows,
+                )
+                rows_inserted += len(rows)
+        return rows_inserted
 
     def import_dividend_events_csv(self, csv_path: str | Path, ticker: str | None = None) -> int:
         self.initialize()
+        rows_inserted = 0
         with Path(csv_path).open(newline="", encoding="utf-8") as handle, self.connect() as connection:
             rows = []
             for row in csv.DictReader(handle):
@@ -152,16 +179,30 @@ class MarketDataStore:
                         float(row["dividend_amount"]),
                     )
                 )
-            connection.executemany(
-                """
-                INSERT INTO dividend_events (ticker, ex_date, dividend_amount)
-                VALUES (?, ?, ?)
-                ON CONFLICT(ticker, ex_date) DO UPDATE SET
-                    dividend_amount = excluded.dividend_amount
-                """,
-                rows,
-            )
-        return len(rows)
+                if len(rows) >= 500:
+                    connection.executemany(
+                        """
+                        INSERT INTO dividend_events (ticker, ex_date, dividend_amount)
+                        VALUES (?, ?, ?)
+                        ON CONFLICT(ticker, ex_date) DO UPDATE SET
+                            dividend_amount = excluded.dividend_amount
+                        """,
+                        rows,
+                    )
+                    rows_inserted += len(rows)
+                    rows.clear()
+            if rows:
+                connection.executemany(
+                    """
+                    INSERT INTO dividend_events (ticker, ex_date, dividend_amount)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(ticker, ex_date) DO UPDATE SET
+                        dividend_amount = excluded.dividend_amount
+                    """,
+                    rows,
+                )
+                rows_inserted += len(rows)
+        return rows_inserted
 
     def get_daily_price(self, ticker: str, trade_date: str | date) -> DailyPrice | None:
         with self.connect() as connection:

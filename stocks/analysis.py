@@ -48,6 +48,13 @@ def _require_positive_close(close_price: float, ticker: str, trade_date: date) -
         )
 
 
+def _require_positive_price(price: float, ticker: str, trade_date: date, field_name: str) -> None:
+    if price <= 0:
+        raise ValueError(
+            f"Invalid {field_name} for {ticker} on {trade_date}: {field_name} must be positive"
+        )
+
+
 def analyze_ex_dividend_day(
     store: MarketDataStore,
     ticker: str,
@@ -66,6 +73,8 @@ def analyze_ex_dividend_day(
     if previous_day is None:
         raise ValueError(f"No previous trading day found for {ticker} before {event.ex_date}")
     _require_positive_close(previous_day.close_price, ticker, previous_day.trade_date)
+    _require_positive_price(ex_day_price.open_price, ticker, ex_day_price.trade_date, "open_price")
+    _require_positive_price(ex_day_price.close_price, ticker, ex_day_price.trade_date, "close_price")
 
     prior_stock_day = store.get_previous_trading_day(ticker, previous_day.trade_date)
     previous_trading_day_return_percent = None

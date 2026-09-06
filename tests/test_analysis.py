@@ -149,6 +149,16 @@ class AnalyzeExDividendDayTests(unittest.TestCase):
 
         self.assertAlmostEqual(result.benchmark_previous_day_return_percent, 1.0101010101, places=6)
 
+    def test_analysis_rejects_non_positive_ex_day_prices(self) -> None:
+        invalid_price_store = MarketDataStore(Path(self.temp_dir.name) / "invalid-ex-day.db")
+        invalid_price_store.initialize()
+        invalid_price_store.upsert_daily_price(DailyPrice("XYZ", date(2024, 5, 9), 49.0, 50.0))
+        invalid_price_store.upsert_daily_price(DailyPrice("XYZ", date(2024, 5, 10), 0.0, 49.0))
+        invalid_price_store.upsert_dividend_event(DividendEvent("XYZ", date(2024, 5, 10), 1.0))
+
+        with self.assertRaisesRegex(ValueError, "open_price must be positive"):
+            analyze_ex_dividend_day(invalid_price_store, "XYZ", date(2024, 5, 10))
+
 
 if __name__ == "__main__":
     unittest.main()
