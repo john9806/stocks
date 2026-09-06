@@ -27,6 +27,7 @@ from stocks import DailyPrice, DividendEvent, MarketDataStore, analyze_ex_divide
 store = MarketDataStore("data/stocks.db")
 store.initialize()
 
+store.upsert_daily_price(DailyPrice("ABC", date(2024, 4, 8), 117.0, 118.0))
 store.upsert_daily_price(DailyPrice("ABC", date(2024, 4, 9), 118.0, 120.0))
 store.upsert_daily_price(DailyPrice("ABC", date(2024, 4, 10), 116.0, 117.0))
 store.upsert_dividend_event(DividendEvent("ABC", date(2024, 4, 10), 3.0))

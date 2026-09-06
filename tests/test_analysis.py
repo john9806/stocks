@@ -56,6 +56,21 @@ class AnalyzeExDividendDayTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "No dividend event found"):
             analyze_ex_dividend_day(self.store, "ABC", date(2024, 5, 1))
 
+    def test_analysis_returns_none_for_missing_optional_context(self) -> None:
+        isolated_store = MarketDataStore(Path(self.temp_dir.name) / "isolated.db")
+        isolated_store.initialize()
+        isolated_store.upsert_daily_price(DailyPrice("XYZ", date(2024, 5, 9), 49.0, 50.0))
+        isolated_store.upsert_daily_price(DailyPrice("XYZ", date(2024, 5, 10), 48.5, 49.0))
+        isolated_store.upsert_dividend_event(DividendEvent("XYZ", date(2024, 5, 10), 1.0))
+
+        result = analyze_ex_dividend_day(isolated_store, "XYZ", date(2024, 5, 10), benchmark_ticker="QQQ")
+
+        self.assertIsNone(result.previous_trading_day_return_percent)
+        self.assertIsNone(result.benchmark_previous_day_return_percent)
+        self.assertIsNone(result.previous_ex_date)
+        self.assertIsNone(result.previous_ex_dividend_percent)
+        self.assertIsNone(result.previous_ex_close_drop_percent)
+
 
 if __name__ == "__main__":
     unittest.main()

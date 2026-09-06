@@ -100,32 +100,57 @@ class MarketDataStore:
 
     def import_daily_prices_csv(self, csv_path: str | Path, ticker: str | None = None) -> int:
         rows_inserted = 0
-        with Path(csv_path).open(newline="", encoding="utf-8") as handle:
+        self.initialize()
+        with Path(csv_path).open(newline="", encoding="utf-8") as handle, self.connect() as connection:
             for row in csv.DictReader(handle):
-                self.upsert_daily_price(
-                    DailyPrice(
-                        ticker=ticker or row["ticker"],
-                        trade_date=_to_date(row["trade_date"]),
-                        open_price=float(row["open_price"]),
-                        close_price=float(row["close_price"]),
-                        high_price=float(row["high_price"]) if row.get("high_price") else None,
-                        low_price=float(row["low_price"]) if row.get("low_price") else None,
-                        volume=int(row["volume"]) if row.get("volume") else None,
-                    )
+                connection.execute(
+                    """
+                    INSERT INTO daily_prices (
+                        ticker,
+                        trade_date,
+                        open_price,
+                        close_price,
+                        high_price,
+                        low_price,
+                        volume
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(ticker, trade_date) DO UPDATE SET
+                        open_price = excluded.open_price,
+                        close_price = excluded.close_price,
+                        high_price = excluded.high_price,
+                        low_price = excluded.low_price,
+                        volume = excluded.volume
+                    """,
+                    (
+                        ticker or row["ticker"],
+                        _to_date(row["trade_date"]).isoformat(),
+                        float(row["open_price"]),
+                        float(row["close_price"]),
+                        float(row["high_price"]) if row.get("high_price") else None,
+                        float(row["low_price"]) if row.get("low_price") else None,
+                        int(row["volume"]) if row.get("volume") else None,
+                    ),
                 )
                 rows_inserted += 1
         return rows_inserted
 
     def import_dividend_events_csv(self, csv_path: str | Path, ticker: str | None = None) -> int:
         rows_inserted = 0
-        with Path(csv_path).open(newline="", encoding="utf-8") as handle:
+        self.initialize()
+        with Path(csv_path).open(newline="", encoding="utf-8") as handle, self.connect() as connection:
             for row in csv.DictReader(handle):
-                self.upsert_dividend_event(
-                    DividendEvent(
-                        ticker=ticker or row["ticker"],
-                        ex_date=_to_date(row["ex_date"]),
-                        dividend_amount=float(row["dividend_amount"]),
-                    )
+                connection.execute(
+                    """
+                    INSERT INTO dividend_events (ticker, ex_date, dividend_amount)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(ticker, ex_date) DO UPDATE SET
+                        dividend_amount = excluded.dividend_amount
+                    """,
+                    (
+                        ticker or row["ticker"],
+                        _to_date(row["ex_date"]).isoformat(),
+                        float(row["dividend_amount"]),
+                    ),
                 )
                 rows_inserted += 1
         return rows_inserted
