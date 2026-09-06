@@ -27,6 +27,12 @@ class DividendDropAnalysis:
     previous_ex_close_drop_percent: float | None
 
 
+@dataclass(frozen=True)
+class PreviousEventAnalysis:
+    dividend_percent: float | None
+    close_drop_percent: float | None
+
+
 def _percent_drop(from_price: float, to_price: float) -> float:
     return ((from_price - to_price) / from_price) * 100
 
@@ -82,8 +88,8 @@ def analyze_ex_dividend_day(
     if previous_event is not None:
         previous_ex_date = previous_event.ex_date
         previous_ex_analysis = _analyze_previous_event(store, previous_event)
-        previous_ex_dividend_percent = previous_ex_analysis[0]
-        previous_ex_close_drop_percent = previous_ex_analysis[1]
+        previous_ex_dividend_percent = previous_ex_analysis.dividend_percent
+        previous_ex_close_drop_percent = previous_ex_analysis.close_drop_percent
 
     dividend_percent = (event.dividend_amount / previous_day.close_price) * 100
     open_drop_percent = _percent_drop(previous_day.close_price, ex_day_price.open_price)
@@ -109,12 +115,15 @@ def analyze_ex_dividend_day(
     )
 
 
-def _analyze_previous_event(store: MarketDataStore, event: DividendEvent) -> tuple[float | None, float | None]:
+def _analyze_previous_event(store: MarketDataStore, event: DividendEvent) -> PreviousEventAnalysis:
     previous_trading_day = store.get_previous_trading_day(event.ticker, event.ex_date)
     ex_day_price = store.get_daily_price(event.ticker, event.ex_date)
     if previous_trading_day is None or ex_day_price is None:
-        return None, None
+        return PreviousEventAnalysis(dividend_percent=None, close_drop_percent=None)
 
     dividend_percent = (event.dividend_amount / previous_trading_day.close_price) * 100
     close_drop_percent = _percent_drop(previous_trading_day.close_price, ex_day_price.close_price)
-    return dividend_percent, close_drop_percent
+    return PreviousEventAnalysis(
+        dividend_percent=dividend_percent,
+        close_drop_percent=close_drop_percent,
+    )

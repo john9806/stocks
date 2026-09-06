@@ -71,6 +71,24 @@ class AnalyzeExDividendDayTests(unittest.TestCase):
         self.assertIsNone(result.previous_ex_dividend_percent)
         self.assertIsNone(result.previous_ex_close_drop_percent)
 
+    def test_analysis_requires_ex_day_trading_data(self) -> None:
+        missing_ex_day_store = MarketDataStore(Path(self.temp_dir.name) / "missing-ex-day.db")
+        missing_ex_day_store.initialize()
+        missing_ex_day_store.upsert_daily_price(DailyPrice("XYZ", date(2024, 5, 9), 49.0, 50.0))
+        missing_ex_day_store.upsert_dividend_event(DividendEvent("XYZ", date(2024, 5, 10), 1.0))
+
+        with self.assertRaisesRegex(ValueError, "No trading data found"):
+            analyze_ex_dividend_day(missing_ex_day_store, "XYZ", date(2024, 5, 10))
+
+    def test_analysis_requires_previous_trading_day(self) -> None:
+        first_day_store = MarketDataStore(Path(self.temp_dir.name) / "first-day.db")
+        first_day_store.initialize()
+        first_day_store.upsert_daily_price(DailyPrice("XYZ", date(2024, 5, 10), 48.5, 49.0))
+        first_day_store.upsert_dividend_event(DividendEvent("XYZ", date(2024, 5, 10), 1.0))
+
+        with self.assertRaisesRegex(ValueError, "No previous trading day found"):
+            analyze_ex_dividend_day(first_day_store, "XYZ", date(2024, 5, 10))
+
 
 if __name__ == "__main__":
     unittest.main()
