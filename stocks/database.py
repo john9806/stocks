@@ -14,6 +14,13 @@ def _to_date(value: str | date) -> date:
     return date.fromisoformat(value)
 
 
+def _resolve_ticker(row: dict[str, str], ticker: str | None) -> str:
+    resolved_ticker = ticker or row.get("ticker")
+    if not resolved_ticker:
+        raise ValueError("CSV import requires either a ticker argument or a ticker column")
+    return resolved_ticker
+
+
 class MarketDataStore:
     def __init__(self, database_path: str | Path = "stocks.db") -> None:
         self.database_path = Path(database_path)
@@ -110,7 +117,7 @@ class MarketDataStore:
             for row in csv.DictReader(handle):
                 rows.append(
                     (
-                        ticker or row["ticker"],
+                        _resolve_ticker(row, ticker),
                         _to_date(row["trade_date"]).isoformat(),
                         float(row["open_price"]),
                         float(row["close_price"]),
@@ -174,7 +181,7 @@ class MarketDataStore:
             for row in csv.DictReader(handle):
                 rows.append(
                     (
-                        ticker or row["ticker"],
+                        _resolve_ticker(row, ticker),
                         _to_date(row["ex_date"]).isoformat(),
                         float(row["dividend_amount"]),
                     )
