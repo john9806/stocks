@@ -42,8 +42,10 @@ def _percent_return(start_price: float, end_price: float) -> float:
 
 
 def _require_positive_close(close_price: float, ticker: str, trade_date: date) -> None:
-    if close_price == 0:
-        raise ValueError(f"Invalid close price for {ticker} on {trade_date}: close_price cannot be zero")
+    if close_price <= 0:
+        raise ValueError(
+            f"Invalid close price for {ticker} on {trade_date}: close_price must be positive"
+        )
 
 
 def analyze_ex_dividend_day(
@@ -137,7 +139,10 @@ def _analyze_previous_event(store: MarketDataStore, event: DividendEvent) -> Pre
     ex_day_price = store.get_daily_price(event.ticker, event.ex_date)
     if previous_trading_day is None or ex_day_price is None:
         return PreviousEventAnalysis(dividend_percent=None, close_drop_percent=None)
-    _require_positive_close(previous_trading_day.close_price, event.ticker, previous_trading_day.trade_date)
+    try:
+        _require_positive_close(previous_trading_day.close_price, event.ticker, previous_trading_day.trade_date)
+    except ValueError:
+        return PreviousEventAnalysis(dividend_percent=None, close_drop_percent=None)
 
     dividend_percent = (event.dividend_amount / previous_trading_day.close_price) * 100
     close_drop_percent = _percent_drop(previous_trading_day.close_price, ex_day_price.close_price)

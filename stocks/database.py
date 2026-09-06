@@ -17,6 +17,7 @@ def _to_date(value: str | date) -> date:
 class MarketDataStore:
     def __init__(self, database_path: str | Path = "stocks.db") -> None:
         self.database_path = Path(database_path)
+        self._initialized = False
 
     def connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.database_path)
@@ -24,6 +25,8 @@ class MarketDataStore:
         return connection
 
     def initialize(self) -> None:
+        if self._initialized:
+            return
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as connection:
             connection.executescript(
@@ -52,6 +55,7 @@ class MarketDataStore:
                     ON dividend_events (ticker, ex_date);
                 """
             )
+        self._initialized = True
 
     def upsert_daily_price(self, price: DailyPrice) -> None:
         self.initialize()

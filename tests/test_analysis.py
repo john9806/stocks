@@ -96,8 +96,41 @@ class AnalyzeExDividendDayTests(unittest.TestCase):
         invalid_price_store.upsert_daily_price(DailyPrice("XYZ", date(2024, 5, 10), 48.5, 49.0))
         invalid_price_store.upsert_dividend_event(DividendEvent("XYZ", date(2024, 5, 10), 1.0))
 
-        with self.assertRaisesRegex(ValueError, "close_price cannot be zero"):
+        with self.assertRaisesRegex(ValueError, "close_price must be positive"):
             analyze_ex_dividend_day(invalid_price_store, "XYZ", date(2024, 5, 10))
+
+    def test_analysis_rejects_negative_previous_close(self) -> None:
+        invalid_price_store = MarketDataStore(Path(self.temp_dir.name) / "negative-close.db")
+        invalid_price_store.initialize()
+        invalid_price_store.upsert_daily_price(DailyPrice("XYZ", date(2024, 5, 9), 0.5, -1.0))
+        invalid_price_store.upsert_daily_price(DailyPrice("XYZ", date(2024, 5, 10), 48.5, 49.0))
+        invalid_price_store.upsert_dividend_event(DividendEvent("XYZ", date(2024, 5, 10), 1.0))
+
+        with self.assertRaisesRegex(ValueError, "close_price must be positive"):
+            analyze_ex_dividend_day(invalid_price_store, "XYZ", date(2024, 5, 10))
+
+    def test_invalid_previous_event_history_does_not_break_current_analysis(self) -> None:
+        store = MarketDataStore(Path(self.temp_dir.name) / "invalid-previous-event.db")
+        store.initialize()
+        for price in (
+            DailyPrice("XYZ", date(2024, 2, 14), 10.5, -10.0),
+            DailyPrice("XYZ", date(2024, 2, 15), 9.5, 9.0),
+            DailyPrice("XYZ", date(2024, 4, 8), 11.0, 12.0),
+            DailyPrice("XYZ", date(2024, 4, 9), 12.0, 13.0),
+            DailyPrice("XYZ", date(2024, 4, 10), 12.0, 12.5),
+        ):
+            store.upsert_daily_price(price)
+        for event in (
+            DividendEvent("XYZ", date(2024, 2, 15), 1.0),
+            DividendEvent("XYZ", date(2024, 4, 10), 0.5),
+        ):
+            store.upsert_dividend_event(event)
+
+        result = analyze_ex_dividend_day(store, "XYZ", date(2024, 4, 10))
+
+        self.assertEqual(result.previous_ex_date, date(2024, 2, 15))
+        self.assertIsNone(result.previous_ex_dividend_percent)
+        self.assertIsNone(result.previous_ex_close_drop_percent)
 
 
 if __name__ == "__main__":
