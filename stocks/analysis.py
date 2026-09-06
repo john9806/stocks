@@ -144,7 +144,6 @@ def _analyze_previous_event(store: MarketDataStore, event: DividendEvent) -> Pre
         return PreviousEventAnalysis(dividend_percent=None, close_drop_percent=None)
     try:
         _require_positive_close(previous_trading_day.close_price, event.ticker, previous_trading_day.trade_date)
-        _require_positive_close(ex_day_price.close_price, event.ticker, ex_day_price.trade_date)
     except ValueError:
         return PreviousEventAnalysis(dividend_percent=None, close_drop_percent=None)
 

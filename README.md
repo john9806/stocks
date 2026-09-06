@@ -40,8 +40,8 @@ print(result.close_drop_percent, result.dividend_percent)
 
 The store also supports standard-library CSV imports:
 
-- `import_daily_prices_csv(...)` with columns `ticker,trade_date,open_price,close_price,high_price,low_price,volume`
-- `import_dividend_events_csv(...)` with columns `ticker,ex_date,dividend_amount`
+- `import_daily_prices_csv(...)` with either a `ticker` CSV column or a `ticker=...` method argument, plus `trade_date,open_price,close_price,high_price,low_price,volume`
+- `import_dividend_events_csv(...)` with either a `ticker` CSV column or a `ticker=...` method argument, plus `ex_date,dividend_amount`
 
 ## Tests
 
